@@ -1,0 +1,132 @@
+LLVM-and-MLIR
+****************************
+BASIC PROJECT WITH CODE
+To get started as a compiler engineer, the most effective project is building a Custom MLIR Dialect. This project demonstrates your ability to define a high-level representation and lower it to LLVM IR for execution.
+Project: The "Hello World" Dialect
+This project involves defining a custom operation in TableGen (a domain-specific language for LLVM) and emitting MLIR. 
+1. Define the Dialect (TableGen)
+Create a file named HelloDialect.td. This tells MLIR what your "language" looks like.
+tablegen
+// Define the dialect
+def Hello_Dialect : Dialect {
+  let name = "hello";
+  let cppNamespace = "::mlir::hello";
+}
+
+// Define a 'world' operation
+def WorldOp : Op<Hello_Dialect, "world"> {
+  let summary = "Prints Hello World";
+  let results = (outs); // No outputs
+}
+
+
+Source: Step-by-Step Guide to Adding a Dialect 
+
+2. Emit MLIR via C++ API
+Using the MLIR C++ API, you can programmatically create this IR.
+cpp
+#include "mlir/IR/Builders.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "HelloDialect.h" // Generated from TableGen
+
+void createModule(mlir::MLIRContext &ctx) {
+    mlir::OpBuilder builder(&ctx);
+    auto module = mlir::ModuleOp::create(builder.getUnknownLoc());
+    
+    builder.setInsertionPointToStart(module.getBody());
+    // Create our custom 'world' operation
+    builder.create<mlir::hello::WorldOp>(builder.getUnknownLoc());
+    
+    module.dump(); // Prints the MLIR to the console
+}
+
+
+Source: Chapter 2: Emitting Basic MLIR 
+
+MLIR
+3. Build & Run
+To run this, you'll need the LLVM Project installed.
+Clone: git clone https://github.com/llvm/llvm-project.git
+Build with MLIR: Use CMake with Ninja to enable MLIR:
+cmake -G Ninja ../llvm -DLLVM_ENABLE_PROJECTS=mlir -DCMAKE_BUILD_TYPE=Release
+Inspect: Use the mlir-opt tool to run passes on your IR:
+./bin/mlir-opt my_input.mlir --pass-pipeline="builtin.module(canonicalize)" 
+MLIR
+
+Intermediate Next Step
+Once you can emit your custom IR, the next step is Lowering. You must write a Conversion Pass to transform hello.world into a standard LLVM IR printf call. 
+Would you like to see the C++ code for the conversion pass to lower this to LLVM IR?
+
+7 sites
+Chapter 2: Emitting Basic MLIR
+Complete Toy Example ¶ We can now generate our “Toy IR”. You can build toyc-ch2 and try yourself on the above example: toyc-ch2 te...
+
+MLIR
+Step-by-step Guide to Adding a New Dialect in MLIR
+11 Jan 2024 — include. The first thing we need to do is decide how we want to define our dialect. MLIR allows us to define the dialect using Tab...
+
+Perry Gibson
+
+MLIR — Defining a New Dialect - Math ∩ Programming
+21 Aug 2023 — Another idea relevant to starting a dialect design is to ask how a dialect will enable easy optimizations. That is the Optimizer d...
+
+www.jeremykun.com
+
+Show all
+LLVM-and-MLIR BASIC PROJECT WITH CODE
+To bridge LLVM and MLIR, the classic project is a Standalone "Lowering" Pipeline. You’ll define a high-level MLIR operation and lower it into LLVM IR that can actually execute on your CPU. 
+The Project: MLIR-to-LLVM "Constant Generator"
+This project shows how to take an MLIR dialect operation and convert it into a format the LLVM Backend understands. 
+1. The Input (MLIR Source)
+Create a file named simple.mlir. This uses the standard Arith Dialect to define a constant.
+mlir
+module {
+  func.func @main() -> i32 {
+    %0 = arith.constant 42 : i32
+    return %0 : i32
+  }
+}
+
+
+2. The Conversion Code (C++ API)
+This C++ snippet uses the MLIR Pass Manager to automatically translate that high-level code into the LLVM Dialect, which is the final stop before raw LLVM IR.
+cpp
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
+#include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
+
+void lowerToLLVM(mlir::ModuleOp module, mlir::MLIRContext &context) {
+    mlir::PassManager pm(&context);
+
+    // 1. Convert high-level math (Arith) to LLVM-compatible math
+    pm.addPass(mlir::createArithToLLVMConversionPass());
+    
+    // 2. Convert functions (Func) to LLVM function signatures
+    pm.addPass(mlir::createConvertFuncToLLVMPass());
+
+    if (mlir::failed(pm.run(module))) {
+        llvm::errs() << "Lowering failed!\n";
+    }
+}
+
+
+Source: MLIR Conversion Tutorials
+3. View the Resulting LLVM IR 
+Instead of writing a full build system immediately, you can use the mlir-translate tool included with the LLVM Project build to see the final engine output:
+bash
+# Convert MLIR to LLVM IR
+./bin/mlir-translate --mlir-to-llvmir simple.mlir -o output.ll
+Use code with caution.
+
+What is inside output.ll?
+You will see raw LLVM Assembly, which looks like this:
+llvm
+define i32 @main() {
+  ret i32 42
+}
+
+
+How to setup your environment
+Download: Use the LLVM Getting Started guide.
+Starter Template: Don't start from scratch; fork the MLIR Standalone Template. It provides the CMakeLists.txt needed to link MLIR and LLVM correctly.
